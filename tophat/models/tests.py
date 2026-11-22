@@ -1,7 +1,7 @@
 """Test models (PLA): head-fit gauges, fixture coupons, rail parts.
 
-Builds one FreeCAD model per group (parts laid out in print orientation) and
-writes stl/test_*.stl. Re-run after changing Params or rail.py.
+Builds one FreeCAD model per group in build/ (parts laid out in print orientation) and
+writes stl/tests/test_*.stl. Re-run after changing Params or rail.py.
 
 TopHatFitTests.FCStd: try-on gauges for the wearer
   fit_ring_<circ>  hat opening at HeadCirc and one hat size (10 mm) either
@@ -23,31 +23,37 @@ FixtureTests.FCStd: joints between hat parts
   finger_tip       CageFingers front finger tip; wedges behind lip_ring
 RailTests.FCStd: cage mounting system
   rail             50 mm dovetail cage rail on a test foot
-  slider           12 mm slider with the 1.2 mm detent tongue, front-down
+  slider           12 mm slider with the 1.4 mm detent tongue, front-down;
+                   its tab hangs below it
+  guide            12 mm guide slider (no tongue) for the top of tall mounts
+  mount_shoe       mount base (mount.py) on a 30 x 30 mm plate: snaps onto
+                   the slider's side grooves, stands on its end
 """
-import math
-import os
-import sys
 import importlib
+import math
+import sys
+from pathlib import Path
 import FreeCAD as App
 import Part
 from FreeCAD import Vector as V
 
-DIR = os.path.expanduser("~/src/github.com/mkoelle/printables/tophat")
-sys.path.insert(0, DIR)
+LIB = str(Path(__file__).resolve().parents[1] / "lib")
+if LIB in sys.path:
+    sys.path.remove(LIB)
+sys.path.insert(0, LIB)  # first, so these modules win over other projects'
 import common
 import rail
 importlib.reload(common)
 importlib.reload(rail)
-from common import FLIP, box, check, fuse, oval, place, size, turn, write_stl
+import mount  # after rail's reload: it reads rail when it loads
+importlib.reload(mount)
+from common import FLIP, STL_TESTS, box, check, fuse, oval, place, size, turn, write_stl
 
 # Groups to build: set TEST_GROUPS (e.g. {"fixtures"}) before exec to rebuild
 # only those models; the rest keep their saved files. Consumed on each run.
 GROUPS = set(globals().pop("TEST_GROUPS", None) or ("fit", "fixtures", "rail"))
 
-if "TopHat" not in App.listDocuments():
-    App.openDocument(os.path.join(DIR, "TopHat.FCStd"))
-hat = App.getDocument("TopHat")
+hat = common.open_model("TopHat")
 val = common.reader(hat.Params)
 BED, BED_H = val("Bed"), val("BedH")
 SEGS = int(val("BrimSegs"))  # a multiple of 4: seams on both axes
@@ -194,12 +200,8 @@ if "fixtures" in GROUPS:
     print(f"  dovetail_flat: pull-apart play {play(t, s):.2f} mm")
 
     def cage_part(model, obj):
-        if model not in App.listDocuments():
-            path = os.path.join(DIR, f"{model}.FCStd")
-            if not os.path.exists(path):
-                return None
-            App.openDocument(path)
-        o = App.getDocument(model).getObject(obj)
+        doc = common.open_model(model, optional=True)
+        o = doc and doc.getObject(obj)
         return o.Shape if o else None
 
 
@@ -224,18 +226,18 @@ if "rail" in GROUPS:
     rail_coupon = add("RailTests", "rail", fuse([foot, r]))
     s = rail.slider()
     add("RailTests", "slider", s, (V(1, 0, 0), -90))  # front face (max y) down
+    add("RailTests", "guide", rail.guide(), (V(1, 0, 0), -90))
     seated = s.copy()
     seated.translate(V(0, 0, rail.BASE_T + rail.seat_offset()))
     pairs.append(("RailTests", "rail/slider seated", rail_coupon, seated))
+    # mount shoe: snaps onto the slider's side grooves; stands on its end
+    shoe = add("RailTests", "mount_shoe", fuse([mount.base(), box(-15, 15, mount.Y_PLATE, mount.Y_MOUNT, 0, 30)]))
+    pairs.append(("RailTests", "slider/mount_shoe", s, shoe))
 
 # --- Models + export ------------------------------------------------------
-out = os.path.join(DIR, "stl")
-os.makedirs(out, exist_ok=True)
 total = 0.0
 for model in dict.fromkeys(c[0] for c in coupons):
-    if model in App.listDocuments():
-        App.closeDocument(model)
-    doc = App.newDocument(model)
+    doc = common.new_model(model)
     print(f"{model}.FCStd")
     x = 0.0
     for _, name, src, s in (c for c in coupons if c[0] == model):
@@ -245,7 +247,7 @@ for model in dict.fromkeys(c[0] for c in coupons):
         # lay out in a row, keeping the print orientation baked into s
         o.Placement = App.Placement(V(x + bb.XLength / 2, 0, 0), App.Rotation()).multiply(o.Placement)
         x += bb.XLength + 15
-        write_stl(s, os.path.join(out, f"test_{name}.stl"), name, BED, BED_H, deflection=0.02)
+        write_stl(s, STL_TESTS / f"test_{name}.stl", name, BED, BED_H, deflection=0.02)
         total += common.grams(src)
         check(src.isValid() and len(src.Solids) == 1, f"{name} valid single solid")
         print(f"  {name}: valid {src.isValid()} solids {len(src.Solids)} {size(bb)} "
@@ -255,13 +257,8 @@ for model in dict.fromkeys(c[0] for c in coupons):
             v = a.common(b).Volume
             check(v > 0.01 if "intended" in label else v < 0.01, f"overlap {label} {v:.3f} mm3")
             print(f"  overlap {label}: {v:.3f} mm3" + ("" if "intended" in label else " (must be 0)"))
-    doc.recompute()
-    if App.GuiUp:
-        import FreeCADGui as Gui
-        Gui.activeDocument().activeView().viewIsometric()
-        Gui.SendMsgToActiveView("ViewFit")
-    doc.saveAs(os.path.join(DIR, f"{model}.FCStd"))
+    common.save_model(doc)
 
 print(f"total {total:.0f} g PLA | Clr {val('Clr'):.2f} Snap {val('Snap'):.2f} "
       f"head opening {2 * A0:.1f} x {2 * B0:.1f} mm | built: {', '.join(sorted(GROUPS))}")
-common.summary("test_kit")
+common.summary("tests")

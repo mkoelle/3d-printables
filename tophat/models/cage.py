@@ -12,35 +12,38 @@ RAIL_COUNT dovetail rails (see rail.py), one per finger, run from just above the
 head to just under the lip, following the wall's flare. The head is modelled
 as a dome: full opening size up to the collar top, rising to HeadClear at the
 centre. Rails stop HeadGap above that dome, measured at a seated slider's
-inner face, so they reach lower than HeadClear at the sides. The model
-includes the head dome (transparent) for reference.
+inner face, so they reach lower than HeadClear at the sides. A 45 deg ramp
+under each rail's bottom end (rail.ramp) lets it print without support;
+sliders slide on over it. The model includes the head dome (transparent)
+for reference.
 
-Re-run after changing Params. Writes stl/tophat_cage_fingers.stl.
+Re-run after changing Params. Writes build/CageFingers.FCStd and
+stl/parts/tophat_cage_fingers.stl.
 """
-import math
-import os
-import sys
 import importlib
+import math
+import sys
+from pathlib import Path
 import FreeCAD as App
 import Part
 from FreeCAD import Vector as V
 
-DIR = os.path.expanduser("~/src/github.com/mkoelle/printables/tophat")
-sys.path.insert(0, DIR)
+LIB = str(Path(__file__).resolve().parents[1] / "lib")
+if LIB in sys.path:
+    sys.path.remove(LIB)
+sys.path.insert(0, LIB)  # first, so these modules win over other projects'
 import common
 import rail
 importlib.reload(common)
 importlib.reload(rail)
-from common import box, check, ellipse, fuse, loft, oval, place, size, turn, write_stl
+from common import STL_PARTS, box, check, ellipse, fuse, loft, oval, place, size, turn, write_stl
 
 RAIL_COUNT = 6                     # 6: front, back + 4 at 60 deg steps
 RAIL_T = [k * 360 / RAIL_COUNT for k in range(RAIL_COUNT)]  # ellipse parameters
 FINGER_W = rail.BASE_W + 8         # finger width
 BEVEL_D, BEVEL_H = 0.5, 1.0        # finger tip inner bevel: depth, height
 
-if "TopHat" not in App.listDocuments():
-    App.openDocument(os.path.join(DIR, "TopHat.FCStd"))
-hat = App.getDocument("TopHat")
+hat = common.open_model("TopHat")
 val = common.reader(hat.Params)
 BED, BED_H = val("Bed"), val("BedH")
 CA, CB, Clr, T = val("CA"), val("CB"), val("Clr"), val("CageT")
@@ -121,13 +124,14 @@ def place_rail(deg):
     inward = d.cross(tan)
     inward.normalize()
     x = inward.cross(d)
-    r = rail.rail(length)
+    # the ramp under the bottom end lets the rail print without support
+    r = fuse([rail.rail(length), rail.ramp(-rail.BASE_T / 2)])
     r.translate(V(0, rail.BASE_T / 2, 0))  # backing straddles the inner face
     m = App.Matrix(x.x, inward.x, d.x, p0.x,
                    x.y, inward.y, d.y, p0.y,
                    x.z, inward.z, d.z, p0.z,
                    0, 0, 0, 1)
-    return r.transformGeometry(m), length, z_start
+    return r.transformGeometry(m), length, z_start, m
 
 
 def ray_box(deg, width):
@@ -142,7 +146,7 @@ def ray_box(deg, width):
 outer, inner = wall_solid(0), wall_solid(T, z0 - 1, z1 + 1)
 shell = outer.cut(inner)
 rails = [place_rail(deg) for deg in RAIL_T]
-rail_shapes = [r.common(outer) for r, _, _ in rails]
+rail_shapes = [r.common(outer) for r, _, _, _ in rails]
 
 # --- Bottom ring + one finger per rail -------------------------------------
 keep = [box(-300, 300, -300, 300, z0 - 1, z0 + ring_h)]
@@ -170,12 +174,13 @@ crown = hat.CrownCut.Shape  # crown without the lip
 lip = hat.CageLip.Shape
 brims = [hat.getObject(f"BrimQ{i}").Shape for i in range(1, int(val("BrimSegs")) + 1)]
 head_shape = head_solid()
-for (r, length, z_start), t, rs in zip(rails, RAIL_T, rail_shapes):
-    check(rs.common(head_solid(gap)).Volume < 0.001, f"rail t={t:.0f} clear of the head (HeadGap)")
+keep_out = head_solid(gap)  # what rails, sliders and mounts must stay out of
+for (r, length, z_start, _), t, rs in zip(rails, RAIL_T, rail_shapes):
+    check(rs.common(keep_out).Volume < 0.001, f"rail t={t:.0f} clear of the head (HeadGap)")
     print(f"rail t={t:.0f}: {length:.0f} mm ({int(length // rail.PITCH)} steps, "
           f"{int(length // (rail.SLIDER_L + rail.TAB_EXT + 1))} sliders), "
           f"starts {z_start:.0f} mm, head overlap {rs.common(head_shape).Volume:.3f} / "
-          f"with HeadGap {rs.common(head_solid(gap)).Volume:.3f} mm3")
+          f"with HeadGap {rs.common(keep_out).Volume:.3f} mm3")
 
 
 def report(name, s):
@@ -197,26 +202,32 @@ print(f"  finger tip squeeze to insert {finger_squeeze():.1f} mm, "
 
 # --- Models + export -------------------------------------------------------
 def save_model(model, parts):
-    if model in App.listDocuments():
-        App.closeDocument(model)
-    doc = App.newDocument(model)
-    for name, s, color in parts + [("HeadDome", head_shape, (0.85, 0.7, 0.6))]:
+    doc = common.new_model(model)
+    for name, s, color in parts + [("HeadDome", head_shape, (0.85, 0.7, 0.6)),
+                                   ("HeadKeepOut", keep_out, (0.9, 0.5, 0.4))]:
         o = doc.addObject("Part::Feature", name)
         o.Shape = s
         if App.GuiUp:
             o.ViewObject.ShapeColor = color
-            if name == "HeadDome":
+            if name.startswith("Head"):
                 o.ViewObject.Transparency = 75
-    doc.recompute()
-    if App.GuiUp:
-        import FreeCADGui as Gui
-        Gui.activeDocument().activeView().viewIsometric()
-        Gui.SendMsgToActiveView("ViewFit")
-    doc.saveAs(os.path.join(DIR, f"{model}.FCStd"))
+            if name == "HeadKeepOut":
+                o.ViewObject.Visibility = False
+    # rail frames for models/layout.py: rail-local coordinates (rail.py, with
+    # the backing moved BASE_T/2 inward) to hat coordinates
+    sheet = doc.addObject("Spreadsheet::Sheet", "Rails")
+    for col, head_ in zip("ABC", ("t", "length", "z_start")):
+        sheet.set(f"{col}1", head_)
+    sheet.set("D1", "matrix rows 1-3 (12 values)")
+    for i, ((_, length, z_start, m), t) in enumerate(zip(rails, RAIL_T), start=2):
+        values = [t, length, z_start] + list(m.A)[:12]
+        for k, v in enumerate(values):
+            sheet.set(f"{chr(65 + k)}{i}", f"{v:.9g}")
+    common.save_model(doc)
 
 
 save_model("CageFingers", [("CageFingers", fingers, (0.2, 0.45, 0.75))])
-bb = write_stl(place(fingers, turn(45)), os.path.join(DIR, "stl", "tophat_cage_fingers.stl"),
+bb = write_stl(place(fingers, turn(45)), STL_PARTS / "tophat_cage_fingers.stl",
                "CageFingers", BED, BED_H)
 print(f"  stl fingers: {size(bb)}")
 common.summary("cage")
