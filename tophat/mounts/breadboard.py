@@ -11,8 +11,8 @@ board_h defaults to 9.3 (with foam, which the clips compress slightly).
 The floor is a diamond lattice (mount.lattice) with a solid border.
 To fit a board, rest its bottom edge on the bottom rim and press it in past
 the side clips; spread the clips to remove it. Prints standing on its
-bottom end: the clips are prismatic along the rail and the top rim has a
-45 deg underside.
+bottom end: the clips are prismatic along the rail, and the top rim and
+the bottom ends of the side rims above the clips have 45 deg undersides.
 """
 import Part
 from FreeCAD import Vector as V
@@ -63,6 +63,18 @@ def _clip(sx, hw, zc, yb):
     return c.cut(Part.Face(Part.makePolygon(w + [w[0]])).extrude(V(xs[1] - xs[0], 0, 0)))
 
 
+def _side_rim(x0, x1, y0, y1, za, zb, hanging):
+    """Side rim from x0 to x1, standing y0 to y1 off the floor, za to zb.
+    hanging: nothing under its bottom end (it starts above a clip gap), so
+    that end rises from the floor at 45 deg instead of hanging flat; the
+    first rim stands on the bottom rim."""
+    r = box(x0, x1, y0 - 0.01, y1, za, zb)
+    if not hanging:
+        return r
+    pts = [V(x0 - 1, y0 - 1, za - 1), V(x0 - 1, y1 + 1, za - 1), V(x0 - 1, y1 + 1, za + y1 + 1 - y0)]
+    return r.cut(Part.Face(Part.makePolygon(pts + [pts[0]])).extrude(V(x1 - x0 + 2, 0, 0)))
+
+
 def parts(val, size="half", **opts):
     w, l, board_h, clips, hw, z0, z1 = _dims(val, size=size, **opts)
     h = z1 + RIM_H
@@ -84,7 +96,7 @@ def parts(val, size="half", **opts):
     for sx in (-1, 1):
         x0, x1 = sorted((sx * hw, sx * xo))
         # low side rims between the clips locate the board
-        extras += [box(x0, x1, y0 - 0.01, y1, za, zb)
+        extras += [_side_rim(x0, x1, y0, y1, za, zb, za > z0)
                    for za, zb in zip(edges[::2], edges[1::2]) if zb - za > 1]
         extras += [_clip(sx, hw, zc, yb) for zc in zcs]
     return [(f"breadboard_{size}", fuse([mount.base(h), floor, bottom, top] + extras))]
