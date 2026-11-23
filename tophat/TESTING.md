@@ -15,9 +15,11 @@ Still to test:
 1. `test_lip_ring` + `test_finger_tip` (32 g): the cage finger in the wedge
    lip.
 2. `test_slider`, `test_guide` + `test_mount_shoe` (with `test_rail`): the
-   slider now has V grooves along its sides for mounts, and its tab hangs
-   below it. Check the slider still clicks and holds, the guide slides
-   freely without rattling, and the shoe snaps on and pulls off.
+   slider's tab hangs below it, and the shoe is now glued flush to the
+   slider, with ridges and an end stop to line it up and a window for the
+   tongue. Check the slider still clicks and holds, the guide slides
+   freely without rattling, and the glued slider still clicks along the
+   rail.
 
 Then print the brim and the cage. Brim pieces print on end (as exported):
 add a slicer plate brim and slicer supports under the curl. Reprint a
@@ -54,7 +56,7 @@ Joints between hat parts.
 |-------|--------|-----------|-------------|
 | `test_rail` + `test_slider` | Dovetail cage rail and the 12 mm slider with the 1.4 mm detent tongue (sample 3, chosen in round 3), with V grooves along its sides for mounts. Its tab hangs below it | Slider slides onto the rail, clicks per 2.4 mm step, holds about 50 g upside down and shaken, pinch handle pulls out to release without cracking the tongue root | Tight slide-on: raise `T_CLR`. Weak hold: lower `CLR`. Tongue cracks: lengthen `SLIDER_L` (18 mm halves the strain) or thin `TONGUE_T` |
 | `test_guide` | Guide slider: the slider body without tongue or tab, for the top of tall mounts | Slides along the rail by hand with no clicks, and does not rattle | Rattles: lower `CLR` / `T_CLR` (they set the slider fit too). Binds: raise them |
-| `test_mount_shoe` | Mount base (`lib/mount.py`) on a 30 x 30 mm plate. Prints standing on its end | Pushes straight onto a seated slider with a click, holds when shaken, pulls off by hand. The slider still clicks along the rail with the shoe on (the shoe clears the tongue) | Too tight or cheeks crack: lower `RIDGE` or raise `CHEEK_CLR`. Too loose: raise `RIDGE`. Tongue rubs the plate: raise `GAP` |
+| `test_mount_shoe` | Mount base (`lib/mount.py`) on a 30 x 30 mm plate: cheek ridges, end stop and tongue window. Prints standing on its end. Replaces the snap-on shoe, whose shallow grooves and round ridges did not hold | A slider slides in from the bottom end, ridges in its grooves, flush on the plate, and stops against the end-stop teeth, centred, without falling out the front. Glued (glue kept out of the window and slots), it clicks along the rail and the tab still releases it | Slider binds sliding in: raise `CHEEK_CLR` or lower `RIDGE`. Falls out the front: raise `RIDGE`. Slider rocks on the stop teeth or rides past them: raise `STOP_W`. Tongue rubs the window: raise `WIN_D` or `WIN_CLR` |
 
 ## Assembly order
 

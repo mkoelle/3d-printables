@@ -7,10 +7,10 @@ places them on the rails and checks that everything fits.
 
 | Component | Part(s) | Purpose | Sliders | Status |
 |-----------|---------|---------|---------|--------|
-| `breadboard.py` | `breadboard_mini`, `breadboard_half` | Pocket for a breadboard, held by snap clips over its side edges (no glue), on a lattice floor. mini: 170 tie-points, 47 x 35 mm. half: 400 tie-points (half size), 84 x 55 mm, which also fits 82-83.5 x 54-55 mm boards. Board thickness 9.3 mm with adhesive foam; set `board_h` for others (8.5 mm bare) | lock + guide | half printed 2026-11-14, not yet tested; mini designed |
-| `sled.py` | `sled_40x60`, `sled_60x90`, `sled_80x110` | Plate with a bottom ledge and rubber-band hooks on both sides; stand an item on the ledge and strap it on. Any size: add it to `VARIANTS` | lock, + guide from 36 mm long | 80x110 printed 2026-11-14, not yet tested |
-| `bottle.py` | `bottle` | C ring a bottle cap snaps into from the side; the cap's lip rests on the ring, flush under the crown top, and the bottle hangs below. Defaults: cap 23 x 15 mm, lip 25 x 8 mm, bottle 33 mm across; sizes are layout options | lock + guide | 2 printed 2026-11-14, not yet tested |
-| (`lib/rail.py`) | `slider`, `guide` | The sliders components stand on: one locking `slider` each, plus a `guide` for any 36 mm or taller (all current ones) | - | 4 of each printed 2026-11-14; grooves, bottom tab and guide not yet tested |
+| `breadboard.py` | `breadboard_mini`, `breadboard_half` | Pocket for a breadboard, held by snap clips over its side edges (no glue), on a lattice floor. mini: 170 tie-points, 47 x 35 mm. half: 400 tie-points (half size), 84 x 55 mm, which also fits 82-83.5 x 54-55 mm boards. Board thickness 9.3 mm with adhesive foam; set `board_h` for others (8.5 mm bare) | lock + guide | half printed 2026-11-14 with the old snap-on shoe; reprint for the glued shoe; mini designed |
+| `sled.py` | `sled_40x60`, `sled_60x90`, `sled_80x110` | Plate with a bottom ledge and rubber-band hooks on both sides; stand an item on the ledge and strap it on. Any size: add it to `VARIANTS` | lock, + guide from 36 mm long | 80x110 printed 2026-11-14 with the old snap-on shoe, which did not hold; reprint for the glued shoe |
+| `bottle.py` | `bottle` | C ring a bottle cap snaps into from the side; the cap's lip rests on the ring, flush under the crown top, and the bottle hangs below. Defaults: cap 23 x 15 mm, lip 25 x 8 mm, bottle 33 mm across; sizes are layout options | lock + guide | 2 printed 2026-11-14 with the old snap-on shoe; reprint for the glued shoe |
+| (`lib/rail.py`) | `slider`, `guide` | The sliders components stand on: one locking `slider` each, plus a `guide` for any 36 mm or taller (all current ones) | - | 4 of each printed 2026-11-14 (unchanged since); side grooves too shallow to snap onto; bottom tab and guide not yet tested |
 
 ## How a component attaches
 
@@ -23,17 +23,41 @@ Every component stands on one rail, on the shoes in `lib/mount.py`:
   top: the same body without tongue or tab. It slides freely and stops the
   component rocking on the rail.
 
-Each shoe has a plate in front of the slider, clear of its detent tongue,
-and two cheeks whose ridges snap into V grooves along the slider's sides.
-Push the component straight onto its sliders to fit it; pull it off to
-remove it. Between the two sliders the cheeks are cut back to a strip, so
-only the ridge zones flex. Only the locking slider holds the position,
-about 50 g.
+The sliders are glued to the component. Each shoe lines its slider up on
+all three axes:
+
+- a **plate** whose back face the slider's front face sits flush against;
+- two **cheeks** along the slider's sides (0.1 mm clearance each side),
+  with a **ridge** on each that runs in the V groove along the slider side
+  and holds the slider to the plate while the glue sets. The ridge ends
+  taper, as a lead-in;
+- an **end stop**: a 45 deg V tooth along each cheek that catches the
+  slider end's side corners, stopping and centring it. It sits above the
+  locking slider (which then also carries the component's weight) and
+  under the guide.
+
+Every shoe face prints at 45 deg or steeper, either way up: no bridges or
+flat overhangs. `models/mounts.py` checks every component for this in its
+print orientation (`common.overhangs`).
+
+A window through the plate in front of the locking slider
+(`mount.pocket()`) gives its detent tongue room to bend out when it clicks.
+Between the two sliders the cheeks are cut back to a strip to save
+material. Only the locking slider holds the position, about 50 g.
+
+To glue: put glue on the slider's front face outside the tongue slots, and
+on its sides. Slide the locking slider into its shoe from the bottom end,
+tab last, and the guide in from the top end, until each meets its stop.
+Keep glue out of the window and the tongue slots: glue there locks the
+detent. The ridges are a guide, not a snap: the first, snap-on shoes did
+not hold, because the slider's V grooves are shallow and the cheek ridges
+print round.
 
 Print the sliders from `stl/mounts/mount_slider.stl` and `mount_guide.stl`.
 They are the same parts as `test_slider` and `test_guide` in `stl/tests/`.
 Print those with the `mount_shoe` coupon and `test_rail` first (see
-`TESTING.md`) and check the snap before printing components.
+`TESTING.md`) and check the glued slider still clicks before printing
+components.
 
 ## Adding a component
 
@@ -48,7 +72,9 @@ defines:
   one locking slider holds it.
 - `parts(val, **opts)`: `[(part name, shape, *print turns)]` in the mount
   frame (`lib/mount.py`). Build from the mount face `mount.Y_MOUNT`
-  inward, starting from `mount.base(base_height(...))`. Mounts print standing on their
+  inward, starting from `mount.base(base_height(...))`. Scripts call it
+  through `mount.build`, which cuts the tongue window, so material there is
+  removed. Mounts print standing on their
   bottom end, so keep geometry at z >= 0 and overhangs at 45 deg.
 - `payload(val, **opts)`: `[(label, envelope shape, grams)]` for what it
   holds, used for the clearance, weight and balance checks.

@@ -4,6 +4,7 @@ Params access, print placement, STL export and checks.
 Import from the scripts in models/, which put this folder on sys.path and
 reload it (see CLAUDE.md).
 """
+import math
 from pathlib import Path
 
 import FreeCAD as App
@@ -104,6 +105,23 @@ def place(shape, *turns):
     bb = s.optimalBoundingBox()
     s.translate(V(-bb.Center.x, -bb.Center.y, -bb.ZMin))
     return s
+
+
+def overhangs(shape, *turns, limit=45.0):
+    """[(face index, area)] of shape's faces that face down at less than
+    `limit` deg from horizontal when printed as place(shape, *turns) lays
+    it, leaving out faces on the bed. Indices are into shape.Faces. Faces
+    within half a degree of the limit pass: the 0.01 mm overlaps that fuse
+    parts tilt 45 deg faces slightly. Tests each face's normal at its
+    parameter centre, so suits planar faces."""
+    s = place(shape, *turns)
+    worst = -math.cos(math.radians(limit - 0.5))
+    out = []
+    for i, f in enumerate(s.Faces):
+        u0, u1, v0, v1 = f.ParameterRange
+        if f.normalAt((u0 + u1) / 2, (v0 + v1) / 2).z < worst and f.BoundBox.ZMin > 0.05:
+            out.append((i, f.Area))
+    return out
 
 
 def write_stl(shape, path, what, bed, bed_h, deflection=0.05):

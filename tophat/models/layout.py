@@ -52,7 +52,7 @@ for name, t, step, opts in LAYOUT:
     for i, s in enumerate(mount.sliders(h)):
         sl = mount.to_hat(s, frame, step)
         items.append((f"{tag} {'slider' if i == 0 else 'guide'}", sl, common.grams(sl), (0.6, 0.6, 0.6)))
-    for part, shape, *_ in mod.parts(val, **opts):
+    for part, shape, *_ in mount.build(mod, val, **opts):
         p = mount.to_hat(shape, frame, step)
         items.append((f"{tag} {part}", p, common.grams(p), (0.2, 0.6, 0.3)))
     for label, shape, grams in mod.payload(val, **opts):

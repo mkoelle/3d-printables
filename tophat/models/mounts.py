@@ -2,8 +2,8 @@
 build/Mounts.FCStd with the parts in a row, and stl/mounts/mount_<part>.stl
 placed for printing, plus the sliders every component stands on
 (mount_slider.stl, mount_guide.stl). The model also shows the sliders each
-part snaps onto (<part>_sliders, see-through). Each part must be a valid single solid that fits the
-printer. Re-run after changing a mount, mount.py or rail.py.
+part is glued to (<part>_sliders, see-through). Each part must be a valid single solid that fits the
+printer, and print without faces overhanging past 45 deg. Re-run after changing a mount, mount.py or rail.py.
 """
 import importlib
 import sys
@@ -44,9 +44,11 @@ x = 0.0
 for name in mount.catalogue():
     mod = mount.load(name)
     for opts in getattr(mod, "VARIANTS", [{}]):
-        for part, shape, *turns in mod.parts(val, **opts):
+        for part, shape, *turns in mount.build(mod, val, **opts):
             ok = shape.isValid() and len(shape.Solids) == 1
             check(ok, f"{part} valid single solid")
+            hang = [a for _, a in common.overhangs(shape, *turns)]
+            check(not hang, f"{part} no overhang past 45 deg ({len(hang)} faces, {sum(hang):.2f} mm2)")
             s = place(shape, *turns)
             bb = write_stl(s, STL_MOUNTS / f"mount_{part}.stl", part, BED, BED_H, deflection=0.02)
             h = mod.base_height(val, **opts)

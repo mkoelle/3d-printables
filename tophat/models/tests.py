@@ -230,8 +230,11 @@ if "rail" in GROUPS:
     seated = s.copy()
     seated.translate(V(0, 0, rail.BASE_T + rail.seat_offset()))
     pairs.append(("RailTests", "rail/slider seated", rail_coupon, seated))
-    # mount shoe: snaps onto the slider's side grooves; stands on its end
-    shoe = add("RailTests", "mount_shoe", fuse([mount.base(), box(-15, 15, mount.Y_PLATE, mount.Y_MOUNT, 0, 30)]))
+    # mount shoe: the slider slides in from below to the end stop, ridges in
+    # its grooves, and glues flush to the plate; tongue window open. Stands
+    # on its end
+    shoe = add("RailTests", "mount_shoe", common.refined(
+        fuse([mount.base(30), box(-15, 15, mount.Y_PLATE, mount.Y_MOUNT, 0, 30)]).cut(mount.pocket())))
     pairs.append(("RailTests", "slider/mount_shoe", s, shoe))
 
 # --- Models + export ------------------------------------------------------

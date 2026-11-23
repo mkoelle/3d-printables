@@ -9,7 +9,8 @@ slider lips print without flat overhangs and the slider self-centres.
 Sliders print front-down: the tongue lies on the bed (bending runs along
 the layer lines) and the detent tooth stands on a post, apex up. Front
 edges carry an elephant-foot chamfer; channel mouths have a lead-in. A V
-groove along each side takes the snap ridges of mount shoes (mount.py).
+groove along each side takes the ridges of a mount's cheeks, which hold
+the slider in its shoe while the glue sets (mount.py).
 
 Rail local frame: X across the rail, Y toward the slider (away from the
 backing), Z along the rail. Backing occupies y in [-BASE_T, 0].
@@ -44,7 +45,7 @@ TAB_EXT = 3.0     # tongue extension above slider top (release tab)
 TAB_H = 2.0       # pinch handle height at the tab end
 TAB_WING = 2.0    # pinch handle overhang past each slider side
 EF = 0.5          # elephant-foot chamfer on the bed (front) edges
-GROOVE_Y = 3.0    # V groove along each slider side, where mount shoes snap on (mount.py)
+GROOVE_Y = 3.0    # V groove along each slider side, for the mount cheek ridges (mount.py)
 GROOVE_D = 0.5    # its depth (45 deg flanks)
 LEAD = 0.6        # lead-in chamfer at the channel mouths
 # Detent tongue thickness, chosen from the round-3 test prints: the 12 mm
